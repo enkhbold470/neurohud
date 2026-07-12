@@ -19,7 +19,9 @@
 // See `src/lib/security.ts` for why an *unauthenticated* localhost WebSocket is a hole and not
 // a convenience.
 
+import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { platform } from 'node:os';
 
 import linkPage from './src/link/index.html';
 import overlayPage from './src/overlay/index.html';
@@ -194,20 +196,17 @@ function log(msg: string): void {
 }
 
 const link = `${cfg.origin}/link?t=${cfg.token}`;
-const overlay = `${cfg.origin}/overlay?t=${cfg.token}`;
 
 console.log(`
   ┌─ NeuroHUD ─────────────────────────────────────────────────────────────
 
-  1 ·  Open in Chrome, and link your headset
-       ${link}
+  Opening the setup page in your browser…
 
-  2 ·  OBS  →  Sources  +  →  Browser  →  paste as URL
-       ${overlay}
-       Width 420  ·  Height 200  ·  untick "Shutdown source when not visible"
+  If it doesn't open, paste this in yourself:
+  ${link}
 
-  Focus needs ≥ 175 SPS. Calibration takes 20 s — do it before you go live.
-  No-graphics alternative:  OBS → Text (GDI+) → Read from file → state/focus.txt
+  Everything you need — connect the headset, copy the OBS URL — is on that page.
+  Leave this window running while you stream.
 ${
 	cfg.exposed
 		? `
@@ -217,7 +216,30 @@ ${
 `
 		: ''
 }
-  Those URLs carry your token — treat them like a password. Don't show them on
-  stream, and don't screenshot the OBS browser-source properties dialog.
+  That URL carries your access token — treat it like a password. Don't show this
+  window on stream.
+
+  state: ${STATE_DIR}
   └────────────────────────────────────────────────────────────────────────
 `);
+
+/**
+ * Open the setup page for them.
+ *
+ * The alternative is asking a streamer to copy a 43-character token out of a terminal window,
+ * which is the kind of step that turns "I'll try this" into "I'll try this later". Suppress with
+ * `--no-open` or `NEUROHUD_NO_OPEN=1` (CI, headless boxes, and anyone who finds it rude).
+ */
+function openBrowser(url: string): void {
+	if (process.argv.includes('--no-open') || process.env.NEUROHUD_NO_OPEN) return;
+	const cmd =
+		platform() === 'darwin' ? 'open' : platform() === 'win32' ? 'cmd' : 'xdg-open';
+	const args = platform() === 'win32' ? ['/c', 'start', '', url] : [url];
+	try {
+		spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref();
+	} catch {
+		/* the URL is printed above; a headless box simply has nothing to open */
+	}
+}
+
+openBrowser(link);

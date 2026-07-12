@@ -15,7 +15,8 @@
 		"test:e2e": "playwright test",
 		"test": "bun run check:lib && bun run test:unit && bun run check && bun run test:e2e",
 		"shoot": "bun run scripts/shoot.ts",
-		"sim": "bun run scripts/simulate-headset.ts"
+		"sim": "bun run scripts/simulate-headset.ts",
+		"build": "bun run scripts/build-binaries.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.61.1",

@@ -70,6 +70,13 @@ CORS preflight**.
 
 ## Things that will bite you
 
+- **`import.meta.url` is not a real path inside a compiled binary.** `bun build --compile` puts
+  modules in a virtual filesystem (`/$bunfs/root`, or `B:\~BUN\root` on Windows), so walking `..`
+  from it used to resolve to `/` — and the server died on boot with `EROFS: mkdir '/state'`. A
+  streamer double-clicking the binary saw it crash instantly, while `bun start` from source worked
+  perfectly. `config.ts` detects this and uses the OS user-data directory. **Always test the
+  binary, not just `bun start`** — they resolve paths differently.
+
 - **`src/lib/{ble,dsp,focus,adc}.ts` are VENDORED** from `web-ble-monitor`, byte-identical, with a
   banner saying so. Edit them upstream and re-run `bun run sync:lib`. `bun run check:lib` fails
   the build on drift — that is the point, and it is why the copies must stay byte-identical.

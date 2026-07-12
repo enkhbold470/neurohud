@@ -81,7 +81,7 @@ const tel = (over: Partial<LinkSnapshot> = {}): Telemetry =>
 const token = generateToken();
 const server = spawn('bun', ['run', 'server.ts'], {
 	cwd: ROOT,
-	env: { ...process.env, NEUROHUD_PORT: String(PORT), NEUROHUD_TOKEN: token },
+	env: { ...process.env, NEUROHUD_PORT: String(PORT), NEUROHUD_TOKEN: token, NEUROHUD_NO_OPEN: '1' },
 	stdio: 'ignore'
 });
 await new Promise((r) => setTimeout(r, 1200));

@@ -1,16 +1,51 @@
 // Runtime configuration. Nothing here is hardcoded and nothing here is committed — the token is
-// generated on first run and lives in `state/`, which is gitignored.
+// generated on first run and lives in the state directory, which is gitignored.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import { homedir, platform } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { generateToken } from './security';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+/**
+ * True when running from a `bun build --compile` binary rather than from source.
+ *
+ * Inside a standalone binary the module lives in Bun's virtual filesystem (`/$bunfs/root` on
+ * unix, `B:\~BUN\root` on Windows), so `import.meta.url` does NOT point at anywhere real. Walking
+ * `..` from there used to resolve to `/`, and the server died on boot trying to `mkdir /state`
+ * — EROFS. A streamer double-clicking the binary would have seen it crash instantly.
+ */
+const COMPILED = /[\\/]\$bunfs[\\/]|~BUN/.test(import.meta.url);
 
-/** Generated secrets, the OBS text-source mirror. Gitignored — never commit this directory. */
-export const STATE_DIR = join(ROOT, 'state');
+/**
+ * Where the generated token and the OBS text mirror live.
+ *
+ * From source: `state/` in the repo, which is gitignored and easy to find.
+ * From a binary: the OS's per-user data directory, because the binary may sit anywhere — in
+ * Downloads, on a read-only volume, or in a directory the user cannot write to.
+ */
+function stateDir(): string {
+	const override = process.env.NEUROHUD_STATE_DIR;
+	if (override) return override;
+
+	if (!COMPILED) {
+		return join(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'), 'state');
+	}
+
+	const home = homedir();
+	switch (platform()) {
+		case 'darwin':
+			return join(home, 'Library', 'Application Support', 'NeuroHUD');
+		case 'win32':
+			return join(process.env.APPDATA ?? join(home, 'AppData', 'Roaming'), 'NeuroHUD');
+		default:
+			return join(process.env.XDG_DATA_HOME ?? join(home, '.local', 'share'), 'neurohud');
+	}
+}
+
+/** Generated secrets, and the OBS text-source mirror. Never commit this directory. */
+export const STATE_DIR = stateDir();
 export const TOKEN_FILE = join(STATE_DIR, 'token');
 export const TEXT_FILE = join(STATE_DIR, 'focus.txt');
 

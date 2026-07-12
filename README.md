@@ -49,22 +49,36 @@ overlay watchdogs its own telemetry and fades out after 3 s of silence.
 
 ## Run it
 
-Two processes, because **OBS's browser source cannot do Web Bluetooth** — its embedded Chromium
-ships without the backend, and Web Bluetooth needs a device chooser a background source can never
-present. So the headset link lives in a real Chrome tab and reaches OBS over a local relay.
+**No terminal, no Node, no git.** Download one file and run it.
+
+1. Grab your build from [**Releases**](https://github.com/enkhbold470/neurohud/releases) —
+   `neurohud-macos-arm64`, `-macos-x64`, `-windows-x64.exe`, or `-linux-x64`.
+2. **Run it.** Your browser opens on the setup page by itself.
+3. On that page: **Connect headset** → wait out the 20 s calibration → **Copy** the overlay URL.
+4. In OBS: **Sources** → **+** → **Browser** → paste the URL → **420 × 200** → untick
+   *"Shutdown source when not visible"*.
+
+That's it. Leave the window running while you stream.
+
+> **macOS**: the binary is unsigned, so the first launch needs
+> `xattr -d com.apple.quarantine ./neurohud-macos-arm64`, or right-click → Open.
+
+<details>
+<summary>Running from source instead</summary>
 
 ```bash
 git clone https://github.com/enkhbold470/neurohud.git
 cd neurohud && bun install
-bun start
+bun start            # same thing; opens the setup page
+bun run build        # produce the standalone binaries in dist/
 ```
 
-The server prints two URLs:
+</details>
 
-1. **Open the `/link` URL in Chrome** and connect your headset. Calibrate for 20 s *before* you go
-   live.
-2. **Paste the `/overlay` URL into OBS** → Sources → **+** → **Browser**. 420 × 200. Untick
-   *"Shutdown source when not visible"*.
+### Why two pieces
+
+**OBS's browser source cannot do Web Bluetooth** — its embedded Chromium ships without the
+backend. So the headset link lives in a real browser tab, and reaches OBS over a local relay:
 
 ```
 Chrome tab (/link)              relay              OBS / Streamlabs / vMix
@@ -74,7 +88,7 @@ NeuroLink      │   WS push   ┌──────────┐  WS    ┌�
 FocusEngine  ──┴────────────▶│  fan-out │───────▶│ Browser Source │
                  (10 Hz)     └──────────┘        └────────────────┘
                                    ├── GET /state.json   (bots, Streamer.bot)
-                                   └── state/focus.txt   (OBS Text source — no graphics)
+                                   └── focus.txt          (OBS Text source — no graphics)
 ```
 
 Works with anything that has a browser source: OBS, Streamlabs, XSplit, vMix.
@@ -126,11 +140,15 @@ That is cross-site WebSocket hijacking, and three independent checks close it:
 |---|---|
 | **Loopback bind** | The relay is not on the network at all by default. |
 | **Origin + Host pinning** | A cross-site page announces its real `Origin`. Pinning `Host` too defeats DNS rebinding, which slips past an origin check alone. |
-| **Bearer token** | Generated on first run into `state/token` (gitignored, `0600`), never committed. Stops a non-browser local process that sends no `Origin` at all. |
+| **Bearer token** | Generated on first run, `0600`, never committed. Stops a non-browser local process that sends no `Origin` at all. |
 
-No wildcard CORS, anywhere. `/state.json` requires the token. The token lives in the URLs the
-server prints — **treat them like a password, and don't screenshot the OBS properties dialog on
+No wildcard CORS, anywhere. `/state.json` requires the token. The token lives in the URLs the app
+hands you — **treat them like a password, and don't screenshot the OBS properties dialog on
 stream.**
+
+The token is written to your OS user-data directory (`~/Library/Application Support/NeuroHUD`,
+`%APPDATA%\NeuroHUD`, `~/.local/share/neurohud`), or to `state/` when running from source. The app
+prints the path on startup. Delete that file to rotate it.
 
 ## The metric
 

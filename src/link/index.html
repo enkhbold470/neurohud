@@ -240,6 +240,46 @@
 
 			/* ── overlay URL ────────────────────────────────────────────────────────── */
 
+			#obs-steps {
+				list-style: none;
+				counter-reset: step;
+				display: grid;
+				gap: 9px;
+				margin-bottom: 16px;
+			}
+			#obs-steps li {
+				counter-increment: step;
+				position: relative;
+				padding-left: 26px;
+				font-size: 12px;
+				color: var(--ink-dim);
+			}
+			#obs-steps li::before {
+				content: counter(step);
+				position: absolute;
+				left: 0;
+				top: 1px;
+				width: 17px;
+				height: 17px;
+				border-radius: 50%;
+				background: var(--edge);
+				color: var(--ink);
+				font-size: 9.5px;
+				display: grid;
+				place-items: center;
+			}
+			#obs-steps b {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
+			.warn-line {
+				margin-top: 12px;
+				font-size: 10.5px;
+				line-height: 1.5;
+				color: var(--ink-faint);
+			}
+
 			#url-box {
 				display: flex;
 				gap: 10px;
@@ -362,15 +402,24 @@
 			</section>
 
 			<section class="card">
-				<h2>OBS browser source</h2>
+				<h2>Add to OBS — takes about 20 seconds</h2>
+
+				<ol id="obs-steps">
+					<li><b>Copy</b> the overlay URL below.</li>
+					<li>In OBS: <b>Sources</b> → <b>+</b> → <b>Browser</b> → give it any name → <b>OK</b>.</li>
+					<li>Paste into <b>URL</b>. Set <b>Width 420</b>, <b>Height 200</b>.</li>
+					<li>Untick <b>“Shutdown source when not visible.”</b> → <b>OK</b>.</li>
+				</ol>
+
 				<div id="url-box">
 					<div id="overlay-url" class="masked">—</div>
-					<button id="copy" class="ghost">Copy</button>
+					<button id="copy">Copy</button>
 					<button id="reveal" class="ghost">Show</button>
 				</div>
-				<p class="desc" style="margin-top: 10px; color: var(--ink-faint); font-size: 10.5px">
-					Width 420 · Height 200. This URL contains your access token — treat it like a
-					password, and don't show it on stream.
+
+				<p class="warn-line">
+					This URL contains your access token. Treat it like a password — don't show it on
+					stream, and don't screenshot the OBS properties dialog.
 				</p>
 			</section>
 

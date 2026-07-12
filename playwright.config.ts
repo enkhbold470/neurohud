@@ -24,7 +24,7 @@ export default defineConfig({
 		command: 'bun run server.ts',
 		url: `http://127.0.0.1:${PORT}/health`,
 		reuseExistingServer: false,
-		env: { NEUROHUD_PORT: PORT, NEUROHUD_TOKEN: TOKEN },
+		env: { NEUROHUD_PORT: PORT, NEUROHUD_TOKEN: TOKEN, NEUROHUD_NO_OPEN: '1' },
 		stdout: 'pipe'
 	}
 });
