@@ -49,19 +49,27 @@ overlay watchdogs its own telemetry and fades out after 3 s of silence.
 
 ## Run it
 
-**No terminal, no Node, no git.** Download one file and run it.
+**No terminal, no Node, no git.** Download, unzip, double-click.
 
-1. Grab your build from [**Releases**](https://github.com/enkhbold470/neurohud/releases) —
-   `neurohud-macos-arm64`, `-macos-x64`, `-windows-x64.exe`, or `-linux-x64`.
-2. **Run it.** Your browser opens on the setup page by itself.
-3. On that page: **Connect headset** → wait out the 20 s calibration → **Copy** the overlay URL.
+1. Grab your build from [**Releases**](https://github.com/enkhbold470/neurohud/releases/latest) and
+   **unzip it**.
+2. **macOS** — right-click `NeuroHUD.command` → **Open** → **Open**.
+   **Windows** — double-click `NeuroHUD.bat`.
+3. Your browser opens on the setup page. **Connect headset** → wait out the 20 s calibration →
+   hit **Copy**.
 4. In OBS: **Sources** → **+** → **Browser** → paste the URL → **420 × 200** → untick
    *"Shutdown source when not visible"*.
 
-That's it. Leave the window running while you stream.
+Leave the window running while you stream.
 
-> **macOS**: the binary is unsigned, so the first launch needs
-> `xattr -d com.apple.quarantine ./neurohud-macos-arm64`, or right-click → Open.
+> **Right-click → Open, not double-click — the first time only.** NeuroHUD isn't signed by Apple
+> (that's a $99/yr certificate), so Gatekeeper wants one confirmation. Windows SmartScreen will
+> warn for the same reason: *More info* → *Run anyway*. After that, normal double-click.
+
+> **Why a zip and not a bare binary?** GitHub serves release assets as plain octet-streams, so the
+> **executable bit does not survive the download**. A bare binary arrives `rw-r--r--`, and Finder —
+> not permitted to run it — hands it to **TextEdit**, which renders the Mach-O header as gibberish.
+> Archives store permissions. That is the entire reason for the wrapper.
 
 <details>
 <summary>Running from source instead</summary>
@@ -70,7 +78,8 @@ That's it. Leave the window running while you stream.
 git clone https://github.com/enkhbold470/neurohud.git
 cd neurohud && bun install
 bun start            # same thing; opens the setup page
-bun run build        # produce the standalone binaries in dist/
+bun run build        # standalone binaries in dist/
+bun run package      # release archives in dist/release/
 ```
 
 </details>
