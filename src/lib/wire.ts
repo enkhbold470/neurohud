@@ -79,6 +79,17 @@ export interface Telemetry {
 	device: string | null;
 	/** The frozen baseline engagement, once known. */
 	baseline: number | null;
+	/**
+	 * True when this came from the synthetic-headset dev harness rather than a real electrode.
+	 *
+	 * The simulator exists so the pipeline can be tested without hardware — but it can drive the
+	 * same overlay that goes on a live broadcast, so a simulated score MUST be able to say so.
+	 * The overlay renders a `SIM` badge on this, and it is not suppressible. A synthetic number
+	 * that an audience mistakes for a measured one is the exact failure this codebase exists to
+	 * refuse; the fact that it would be *our own* harness doing the lying makes it worse, not
+	 * more forgivable.
+	 */
+	sim: boolean;
 }
 
 /** Everything the link page knows at one instant. The only input to the gate. */
@@ -89,6 +100,8 @@ export interface LinkSnapshot {
 	fs: number | null;
 	/** Epoch ms. Passed in rather than read from the clock, so this stays a pure function. */
 	at: number;
+	/** Only the dev harness sets this. The real link page never does. */
+	sim?: boolean;
 }
 
 /** One decimal is all the precision this signal has ever earned; more just jitters on screen. */
@@ -119,7 +132,8 @@ export function deriveTelemetry(s: LinkSnapshot): Telemetry {
 		fs: s.fs,
 		fsReason: m?.fsReason ?? null,
 		device: s.device,
-		baseline: m?.baseline ?? null
+		baseline: m?.baseline ?? null,
+		sim: s.sim === true
 	};
 
 	if (s.linkState !== 'live') {
@@ -168,7 +182,8 @@ export function offlineTelemetry(at: number): Telemetry {
 		fs: null,
 		fsReason: null,
 		device: null,
-		baseline: null
+		baseline: null,
+		sim: false
 	};
 }
 
@@ -182,9 +197,12 @@ export function isStale(t: Telemetry, now: number, maxAgeMs = STALE_AFTER_MS): b
  * streamer who wants the number in their own layout. Same gate: no number unless live.
  */
 export function formatTextLine(t: Telemetry): string {
+	// The SIM marker rides along here too. This line can be dropped straight into an OBS text
+	// source, where there is even less room for context than on the overlay.
+	const sim = t.sim ? 'SIM · ' : '';
 	switch (t.state) {
 		case 'live':
-			return `Focus ${Math.round(t.focus!)}  ·  Calm ${Math.round(t.calm!)}`;
+			return `${sim}Focus ${Math.round(t.focus!)}  ·  Calm ${Math.round(t.calm!)}`;
 		case 'calibrating':
 			return `Calibrating… ${Math.ceil(t.calibrationLeftSec)}s`;
 		case 'nosignal':

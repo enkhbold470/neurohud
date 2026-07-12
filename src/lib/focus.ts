@@ -363,7 +363,16 @@ export class FocusEngine {
 					const mid = sorted.length >> 1;
 					this.baseline = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 				}
-			} else {
+			}
+
+			// Deliberately NOT an `else`. The update that FREEZES the baseline must also produce
+			// the first score. When this was an else-branch, that update set `baseline` and then
+			// fell straight through to the metrics block, where `calibrating` had just flipped to
+			// false while `scoreEma` was still 0 — so the very first frame after calibration
+			// reported a confident, fabricated **focus of 0**, for one update, before jumping to
+			// its true value. Harmless in a dashboard; on a live stream it is a false number in
+			// front of an audience, which is the one thing we do not do.
+			if (this.baseline !== null) {
 				const s = this.scoreFor(engagement, this.baseline);
 				// Prime on the first real reading so the score doesn't crawl up from 0.
 				this.scoreEma = this.scorePrimed ? this.scoreEma * k + s * (1 - k) : s;

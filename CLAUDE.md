@@ -79,7 +79,18 @@ CORS preflight**.
   alpha rendered at ~34 Hz.
 - **OBS's browser source has no Web Bluetooth.** That is *why* the relay exists. Don't try to move
   the BLE link into the overlay; it cannot work, and the device chooser needs a user gesture a
-  background source can never produce.
+  background source can never produce. This is not a guess — OBS's CEF launches its helpers with
+  `--disable-features=…,WebBluetooth`, visible in the GPU helper's command line.
+- **A stale CEF lock makes every OBS browser source render blank**, including a plain `data:` URL,
+  with *nothing* in any log — no crash report, an empty `~/Library/Logs/OBS_debug.log`, and OBS
+  cheerfully reporting the source as active and showing. The tell is that no
+  `OBS Helper (Renderer)` process exists. It happens after a quick quit→relaunch. Fix:
+  `pkill -f "OBS Helper"`, then relaunch. Cost me an hour; do not re-debug the overlay for this.
+- **Diagnose OBS rendering with a colour source, not a browser source.** `color_source_v3` needs no
+  CEF, so if it screenshots opaque while the browser source screenshots transparent, the fault is
+  obs-browser and not your page. And do not judge a PNG by its byte count: a 460×210 image of a
+  *solid* colour compresses to about the same size as a fully transparent one (~475 B). Decode the
+  alpha channel and look.
 - **The ESP32 accepts one BLE central**, so the relay accepts one `source` socket. A second link
   page supersedes the first rather than fighting over the radio.
 - **Vitest and Playwright both claim `*.spec.ts`.** `vitest.config.ts` scopes vitest to

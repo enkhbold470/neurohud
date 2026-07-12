@@ -133,6 +133,27 @@
 				font-weight: 500;
 			}
 
+			/* ── the SIM badge ────────────────────────────────────────────────────────────
+			   Shown whenever the numbers come from the synthetic-headset harness instead of an
+			   electrode. It is deliberately loud, and there is deliberately no query param to
+			   turn it off: the harness can drive the same overlay that goes on a live broadcast,
+			   and a synthetic number an audience mistakes for a measured one is the one thing
+			   this whole codebase exists to refuse.                                          */
+			#sim {
+				display: none;
+				font-size: calc(8.5px * var(--scale));
+				font-weight: 700;
+				letter-spacing: 0.14em;
+				color: #0a0c10;
+				background: var(--flow);
+				padding: calc(2px * var(--scale)) calc(5px * var(--scale));
+				border-radius: 3px;
+				margin-left: calc(2px * var(--scale));
+			}
+			#panel[data-sim='1'] #sim {
+				display: inline-block;
+			}
+
 			#status {
 				margin-left: auto;
 				font-size: calc(9.5px * var(--scale));
@@ -299,6 +320,7 @@
 			<header>
 				<span id="lamp"></span>
 				<span id="title">NeuroFocus</span>
+				<span id="sim">SIM</span>
 				<span id="status">offline</span>
 			</header>
 

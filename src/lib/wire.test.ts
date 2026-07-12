@@ -230,6 +230,28 @@ describe('formatTextLine — the OBS text-source fallback', () => {
 	});
 });
 
+describe('the SIM flag — a synthetic number must never pass as a measured one', () => {
+	it('defaults to false: a real headset is never tagged sim', () => {
+		expect(deriveTelemetry(snapshot()).sim).toBe(false);
+		expect(offlineTelemetry(T).sim).toBe(false);
+	});
+
+	it('is carried on every frame the harness sends, in every state', () => {
+		expect(deriveTelemetry(snapshot({ sim: true })).sim).toBe(true);
+		expect(deriveTelemetry(snapshot({ sim: true, linkState: 'idle' })).sim).toBe(true);
+		expect(
+			deriveTelemetry(snapshot({ sim: true, metrics: goodMetrics({ signalOk: false }) })).sim
+		).toBe(true);
+	});
+
+	it('marks the OBS text-source line too, where there is even less room for context', () => {
+		expect(formatTextLine(deriveTelemetry(snapshot({ sim: true })))).toBe(
+			'SIM · Focus 72  ·  Calm 31'
+		);
+		expect(formatTextLine(deriveTelemetry(snapshot()))).not.toMatch(/SIM/);
+	});
+});
+
 describe('the claims we must not drift on', () => {
 	it('the footer names the baseline and the electrode honestly', () => {
 		expect(OVERLAY_FOOTER).toMatch(/baseline/i);

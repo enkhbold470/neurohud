@@ -170,6 +170,27 @@ test('always carries the honesty footer', async ({ page }) => {
 	await expect(footer).not.toContainText(/fp1|frontal|prefrontal/i);
 });
 
+test('shows a SIM badge for synthetic telemetry, and no badge for real', async ({ page }) => {
+	const { push } = await openOverlay(page);
+
+	await push(telemetry());
+	await expect(page.locator('#sim')).toBeHidden();
+
+	await push(telemetry({ sim: true }));
+	await expect(page.locator('#sim')).toBeVisible();
+	await expect(page.locator('#sim')).toHaveText('SIM');
+	// The number still renders — the point is that it renders LABELLED, not that it is withheld.
+	await expect(focusValue(page)).toHaveText('72');
+});
+
+test('the SIM badge cannot be turned off by a query param', async ({ page }) => {
+	// Someone will try. The harness can drive the overlay that goes on a live broadcast, so this
+	// badge is the only thing standing between a synthetic score and an audience believing it.
+	const { push } = await openOverlay(page, '&sim=0&bars=0&theme=light&scale=1');
+	await push(telemetry({ sim: true }));
+	await expect(page.locator('#sim')).toBeVisible();
+});
+
 test('the overlay refuses to load telemetry without a token', async ({ page }) => {
 	// The attack: a page the streamer has open in another tab opens a socket to the relay.
 	// WebSockets get no CORS preflight, so nothing but our own check stops this.

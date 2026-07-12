@@ -8,7 +8,7 @@ A dry-EEG headset as an OBS browser source — that refuses to show a number it 
 
 [![Bun](https://img.shields.io/badge/Bun-1.3+-000?logo=bun&logoColor=white)](#run-it)
 [![OBS](https://img.shields.io/badge/OBS-browser_source-302E31?logo=obsstudio&logoColor=white)](#run-it)
-[![Tests](https://img.shields.io/badge/tests-116%20passing-2ea44f)](#tests)
+[![Tests](https://img.shields.io/badge/tests-122%20passing-2ea44f)](#tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <img src="docs/01-live.png" width="880" alt="NeuroHUD live on a stream frame">
@@ -78,6 +78,37 @@ FocusEngine  ──┴────────────▶│  fan-out │─
 ```
 
 Works with anything that has a browser source: OBS, Streamlabs, XSplit, vMix.
+
+### Verified inside OBS
+
+<img src="docs/04-in-obs.png" width="460" alt="The overlay rendered by OBS itself">
+
+Those two frames are **OBS's own pixels** — captured from its render pipeline (OBS 32.0.4, CEF
+127), not from Chrome. The transparent composite, the blurred scrim, the gate, and the `SIM` badge
+all survive CEF.
+
+Incidentally, OBS's CEF launches with `--disable-features=…,WebBluetooth`. That is not a policy we
+chose to work around; it is why the relay has to exist at all.
+
+> **Browser source showing nothing?** Quit OBS *fully* and make sure no `OBS Helper` processes are
+> left behind (`pkill -f "OBS Helper"`), then relaunch. A stale CEF lock makes every browser source
+> render blank — even a plain `data:` URL — with nothing in any log. It is not your overlay.
+
+### No headset yet?
+
+```bash
+bun run sim          # a synthetic headset: calibrate → focus → flow → electrode pops off
+bun run sim --fs 90  # …and watch the rate gate refuse to score
+```
+
+**This is not a demo mode**, and it will not become one. It generates EEG-shaped µV, scales them
+with the real v4 ADC profile, and pushes them through the **real `FocusEngine`** and the **real
+gate** — every filter, the Welch PSD, the Pope index, the frozen baseline, and all three refusals
+are genuine. Only the electrode is fake.
+
+And because it drives the same overlay that can go on a live broadcast, every frame it sends is
+tagged `sim: true`, which the overlay renders as a **`SIM` badge that cannot be turned off**. Use
+it to place and size your overlay before the headset is on your head.
 
 <img src="docs/03-link.png" width="700" alt="The link page">
 
@@ -171,7 +202,7 @@ bun run test      # everything: drift → units → types → browser
 > Use `bun run test`, not `bun test` — the latter is Bun's own runner, which would try to collect
 > the Playwright specs and fall over.
 
-116 tests, no hardware required. They pin the things that would put a false number in front of an
+122 tests, no hardware required. They pin the things that would put a false number in front of an
 audience:
 
 - a detached electrode yields `focus: null` — not `99`
@@ -180,12 +211,21 @@ audience:
 - the overlay goes dark when the link dies, rather than freezing its last good number
 - a cross-site page cannot open a source socket, even holding the token
 - a DNS-rebound `Host` is refused even with a valid token and a same-origin `Origin`
+- synthetic telemetry always renders a `SIM` badge, and no query param can suppress it
+
+One of these came from a real bug. Driving the synthetic headset through the pipeline surfaced a
+single frame, at the instant calibration completed, where `calibrating` had already flipped to
+false but the score had not yet been computed — so the overlay reported a confident, fabricated
+**focus of 0** for ~100 ms. Harmless in a dashboard. In front of an audience it is a false claim
+about a person. Fixed upstream in the analyzer's `focus.ts`, and pinned by a test there.
 
 ## Status — read this before you judge the screenshots
 
 **No image in this README is a real EEG capture.** They are the real overlay, rendered by the real
-relay, driven through the real gate — but the input is generated telemetry, not a person wearing
-the headset. **This has not yet been run against physical hardware.**
+relay, driven through the real gate — and `04-in-obs.png` is genuinely OBS's own output — but the
+input is the synthetic headset, not a person wearing the device. Note the `SIM` badge in that
+image: it is there for exactly this reason. **This has not yet been run against physical
+hardware.**
 
 When it has, these images get replaced with a real capture and this section gets deleted.
 

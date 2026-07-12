@@ -81,6 +81,8 @@ function render(t: Telemetry): void {
 
 	panel.dataset.state = t.state;
 	panel.dataset.nodata = live ? '0' : '1';
+	// Not suppressible, by design. If the numbers are synthetic, an audience gets told.
+	panel.dataset.sim = t.sim ? '1' : '0';
 	panel.classList.toggle('flow', live && t.flow);
 	// Offline is the only state that hides the panel outright. Every other state still shows —
 	// an audience watching a "no signal" light learns something true; a blank corner does not.

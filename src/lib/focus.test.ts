@@ -363,3 +363,44 @@ describe('FocusEngine — refuses to score where the physics does not allow it',
 		expect(m.focus).toBeGreaterThan(50);
 	});
 });
+
+describe('the calibration handover', () => {
+	/**
+	 * Regression: the update that froze the baseline used to be an `else` branch, so it set
+	 * `baseline` and then skipped scoring. `calibrating` flipped to false while `scoreEma` was
+	 * still 0, and the first frame after calibration reported a confident, fabricated **focus of
+	 * 0** before jumping to its real value.
+	 *
+	 * Caught by driving a synthetic headset through the real engine and watching a `0` flash on
+	 * an OBS overlay at the moment calibration completed.
+	 */
+	it('never reports focus 0 on the first frame after the baseline freezes', () => {
+		// A short calibration so the handover lands inside the loop below.
+		const e = new FocusEngine(FS, { calibrationSec: 2 });
+
+		let sawCalibrating = false;
+		let firstScored: number | null = null;
+
+		// Feed one update's worth of samples at a time and inspect every single metrics frame —
+		// the bug was exactly one frame wide, so a coarser check misses it.
+		for (let i = 0; i < 400 && firstScored === null; i++) {
+			for (let s = 0; s < Math.round(FS / 8); s++) {
+				const t = (i * Math.round(FS / 8) + s) / FS;
+				e.push(20 * Math.sin(2 * Math.PI * 10 * t) + 20 * Math.sin(2 * Math.PI * 20 * t));
+			}
+			const m = e.read();
+			if (m.calibrating) {
+				sawCalibrating = true;
+				continue;
+			}
+			if (sawCalibrating && !m.warmingUp && m.signalOk) firstScored = m.focus;
+		}
+
+		expect(sawCalibrating).toBe(true);
+		expect(firstScored).not.toBeNull();
+		// The handover frame is scored against a baseline taken from this same signal, so it must
+		// land at the user's own baseline — 50 — and emphatically not at 0.
+		expect(firstScored!).toBeGreaterThan(0);
+		expect(firstScored!).toBeCloseTo(50, 0);
+	});
+});
