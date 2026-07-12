@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>NeuroHUD — link your headset</title>
+		<style>
+			:root {
+				--bg: #0a0c10;
+				--panel: #11151b;
+				--edge: #1e252f;
+				--ink: #e9eef3;
+				--ink-dim: #8290a1;
+				--ink-faint: #58657a;
+
+				--focus: #45d6a4;
+				--flow: #f5b53f;
+				--calm: #62a0f5;
+				--warn: #ff6b5e;
+
+				--radius: 12px;
+				--mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'IBM Plex Mono', 'Cascadia Mono',
+					'Roboto Mono', Menlo, Consolas, monospace;
+			}
+
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				background:
+					radial-gradient(900px 500px at 80% -10%, #14202b 0%, transparent 60%),
+					var(--bg);
+				color: var(--ink);
+				font-family: var(--mono);
+				-webkit-font-smoothing: antialiased;
+				min-height: 100vh;
+				padding: 40px 24px 72px;
+				line-height: 1.5;
+			}
+
+			main {
+				max-width: 760px;
+				margin: 0 auto;
+				display: grid;
+				gap: 20px;
+			}
+
+			h1 {
+				font-size: 13px;
+				letter-spacing: 0.24em;
+				text-transform: uppercase;
+				font-weight: 500;
+				color: var(--ink-dim);
+			}
+			h1 b {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
+			.card {
+				background: var(--panel);
+				border: 1px solid var(--edge);
+				border-radius: var(--radius);
+				padding: 20px;
+			}
+
+			h2 {
+				font-size: 9.5px;
+				letter-spacing: 0.18em;
+				text-transform: uppercase;
+				color: var(--ink-faint);
+				font-weight: 500;
+				margin-bottom: 14px;
+			}
+
+			/* ── connection ─────────────────────────────────────────────────────────── */
+
+			#connect-row {
+				display: flex;
+				align-items: center;
+				gap: 14px;
+				flex-wrap: wrap;
+			}
+
+			button {
+				font: inherit;
+				font-size: 12px;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: var(--bg);
+				background: var(--focus);
+				border: 0;
+				border-radius: 8px;
+				padding: 11px 20px;
+				cursor: pointer;
+				transition:
+					filter 140ms ease,
+					opacity 140ms ease;
+			}
+			button:hover:not(:disabled) {
+				filter: brightness(1.12);
+			}
+			button:disabled {
+				opacity: 0.35;
+				cursor: not-allowed;
+			}
+			button.ghost {
+				background: transparent;
+				color: var(--ink-dim);
+				border: 1px solid var(--edge);
+			}
+			button.ghost:hover:not(:disabled) {
+				color: var(--ink);
+				border-color: var(--ink-faint);
+				filter: none;
+			}
+
+			#link-state {
+				font-size: 12px;
+				color: var(--ink-dim);
+			}
+			#link-state[data-tone='error'] {
+				color: var(--warn);
+			}
+			#link-state[data-tone='live'] {
+				color: var(--focus);
+			}
+
+			/* ── readout ────────────────────────────────────────────────────────────── */
+
+			#readout {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+				gap: 1px;
+				background: var(--edge);
+				border: 1px solid var(--edge);
+				border-radius: var(--radius);
+				overflow: hidden;
+			}
+			.stat {
+				background: var(--panel);
+				padding: 15px 16px;
+			}
+			.stat .k {
+				font-size: 9px;
+				letter-spacing: 0.15em;
+				text-transform: uppercase;
+				color: var(--ink-faint);
+				margin-bottom: 7px;
+			}
+			.stat .v {
+				font-size: 24px;
+				font-weight: 600;
+				font-variant-numeric: tabular-nums;
+				letter-spacing: -0.02em;
+				line-height: 1;
+			}
+			#v-focus {
+				color: var(--focus);
+			}
+			#v-calm {
+				color: var(--calm);
+			}
+			.stat .v.dead {
+				color: var(--ink-faint);
+			}
+			.stat .sub {
+				font-size: 10px;
+				color: var(--ink-faint);
+				margin-top: 6px;
+			}
+
+			/* ── gates ──────────────────────────────────────────────────────────────── */
+
+			#gates {
+				display: grid;
+				gap: 9px;
+			}
+			.gate {
+				display: flex;
+				align-items: flex-start;
+				gap: 10px;
+				font-size: 11.5px;
+				color: var(--ink-dim);
+			}
+			.gate .dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--ink-faint);
+				margin-top: 6px;
+				flex: none;
+			}
+			.gate[data-ok='1'] .dot {
+				background: var(--focus);
+			}
+			.gate[data-ok='0'] .dot {
+				background: var(--warn);
+			}
+			.gate[data-ok='1'] {
+				color: var(--ink);
+			}
+			.gate b {
+				font-weight: 600;
+			}
+
+			/* ── settings ───────────────────────────────────────────────────────────── */
+
+			.field {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 16px;
+				padding: 11px 0;
+				border-bottom: 1px solid var(--edge);
+				font-size: 12px;
+			}
+			.field:last-child {
+				border-bottom: 0;
+			}
+			.field .desc {
+				color: var(--ink-faint);
+				font-size: 10.5px;
+				margin-top: 3px;
+			}
+			select {
+				font: inherit;
+				font-size: 12px;
+				background: var(--bg);
+				color: var(--ink);
+				border: 1px solid var(--edge);
+				border-radius: 7px;
+				padding: 7px 10px;
+				cursor: pointer;
+			}
+
+			/* ── overlay URL ────────────────────────────────────────────────────────── */
+
+			#url-box {
+				display: flex;
+				gap: 10px;
+				align-items: center;
+			}
+			#overlay-url {
+				flex: 1;
+				min-width: 0;
+				font-family: var(--mono);
+				font-size: 11px;
+				background: var(--bg);
+				border: 1px solid var(--edge);
+				border-radius: 8px;
+				padding: 10px 12px;
+				color: var(--ink-dim);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			#overlay-url.masked {
+				letter-spacing: 0.05em;
+			}
+
+			/* ── the honest bit ─────────────────────────────────────────────────────── */
+
+			#caveats {
+				border-color: #2a2118;
+				background: #14110c;
+			}
+			#caveats h2 {
+				color: var(--flow);
+			}
+			#caveats ul {
+				list-style: none;
+				display: grid;
+				gap: 10px;
+			}
+			#caveats li {
+				font-size: 11.5px;
+				color: var(--ink-dim);
+				padding-left: 16px;
+				position: relative;
+			}
+			#caveats li::before {
+				content: '·';
+				position: absolute;
+				left: 4px;
+				color: var(--flow);
+			}
+			#caveats b {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
+			#log {
+				font-size: 10.5px;
+				color: var(--ink-faint);
+				white-space: pre-wrap;
+				max-height: 120px;
+				overflow-y: auto;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1><b>NeuroHUD</b> · link</h1>
+
+			<section class="card">
+				<h2>Headset</h2>
+				<div id="connect-row">
+					<button id="connect">Connect headset</button>
+					<button id="diag" class="ghost" disabled>Run diagnostic</button>
+					<button id="recal" class="ghost" disabled>Recalibrate</button>
+					<span id="link-state">Not connected.</span>
+				</div>
+			</section>
+
+			<section id="readout">
+				<div class="stat">
+					<div class="k">Focus</div>
+					<div class="v dead" id="v-focus">—</div>
+					<div class="sub" id="s-focus">not measuring</div>
+				</div>
+				<div class="stat">
+					<div class="k">Calm</div>
+					<div class="v dead" id="v-calm">—</div>
+					<div class="sub">alpha share</div>
+				</div>
+				<div class="stat">
+					<div class="k">Signal</div>
+					<div class="v dead" id="v-rms">—</div>
+					<div class="sub">µV RMS</div>
+				</div>
+				<div class="stat">
+					<div class="k">Blinks</div>
+					<div class="v dead" id="v-blinks">0</div>
+					<div class="sub">since link</div>
+				</div>
+			</section>
+
+			<section class="card">
+				<h2>Gates — all three must be open before a number goes on stream</h2>
+				<div id="gates">
+					<div class="gate" id="gate-fs">
+						<span class="dot"></span><span
+							><b>Sample rate</b> — <span class="why">waiting for the board</span></span
+						>
+					</div>
+					<div class="gate" id="gate-signal">
+						<span class="dot"></span><span
+							><b>Electrode contact</b> — <span class="why">waiting for signal</span></span
+						>
+					</div>
+					<div class="gate" id="gate-cal">
+						<span class="dot"></span><span
+							><b>Baseline</b> — <span class="why">not calibrated</span></span
+						>
+					</div>
+				</div>
+			</section>
+
+			<section class="card">
+				<h2>OBS browser source</h2>
+				<div id="url-box">
+					<div id="overlay-url" class="masked">—</div>
+					<button id="copy" class="ghost">Copy</button>
+					<button id="reveal" class="ghost">Show</button>
+				</div>
+				<p class="desc" style="margin-top: 10px; color: var(--ink-faint); font-size: 10.5px">
+					Width 420 · Height 200. This URL contains your access token — treat it like a
+					password, and don't show it on stream.
+				</p>
+			</section>
+
+			<section class="card">
+				<h2>Settings</h2>
+				<div class="field">
+					<div>
+						Sample rate
+						<div class="desc">Focus needs ≥ 175 SPS. Below that the score is not defensible.</div>
+					</div>
+					<select id="sps">
+						<option value="175">175 SPS</option>
+						<option value="330">330 SPS</option>
+						<option value="600">600 SPS</option>
+						<option value="90">90 SPS — no focus</option>
+						<option value="45">45 SPS — no focus</option>
+					</select>
+				</div>
+				<div class="field">
+					<div>
+						Mains
+						<div class="desc">60 Hz in the Americas, 50 Hz most elsewhere.</div>
+					</div>
+					<select id="mains">
+						<option value="60">60 Hz</option>
+						<option value="50">50 Hz</option>
+					</select>
+				</div>
+				<div class="field">
+					<div>
+						Remember my baseline
+						<div class="desc">
+							Skip the 20 s calibration next stream. Only valid for the same headset and placement.
+						</div>
+					</div>
+					<select id="remember">
+						<option value="1">On</option>
+						<option value="0">Off</option>
+					</select>
+				</div>
+			</section>
+
+			<section class="card" id="caveats">
+				<h2>What this number is, and is not</h2>
+				<ul>
+					<li>
+						<b>Clenching your jaw raises "focus" exactly like concentrating does.</b> Beta (13–30 Hz)
+						overlaps jaw and neck muscle activity, and one channel cannot separate them.
+					</li>
+					<li>
+						<b>50 is your own baseline</b>, frozen after the first 20 s. The score is not comparable
+						to anyone else's, and only meaningful within one session.
+					</li>
+					<li>
+						<b>Calm is not the opposite of focus.</b> It is the alpha share of the signal — a
+						relaxation cue that moves independently.
+					</li>
+					<li>
+						<b>There is no stress reading.</b> A single around-ear channel cannot support one, so
+						NeuroHUD does not show one.
+					</li>
+				</ul>
+			</section>
+
+			<section class="card">
+				<h2>Log</h2>
+				<div id="log">—</div>
+			</section>
+		</main>
+
+		<script type="module" src="./link.ts"></script>
+	</body>
+</html>

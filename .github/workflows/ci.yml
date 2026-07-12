@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      # The DSP is vendored from the analyzer. In a standalone clone there is no upstream to
+      # diff against, so this is a no-op here — but the vendored suites below still run, and
+      # they are what actually pin the meaning of the score.
+      - run: bun run check:lib
+
+      - run: bun run check # tsc --noEmit
+      - run: bun run test:unit # dsp, ble, focus, wire, security
+
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:e2e # drives the real overlay against the real relay

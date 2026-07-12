@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>NeuroFocus — OBS overlay</title>
+		<style>
+			/* ── Instrument panel ────────────────────────────────────────────────────────────
+			   This sits over arbitrary game video — a white snow map or a black cave — so
+			   legibility cannot come from colour alone. It comes from three layers at once:
+			     · a blurred graphite scrim          (kills whatever is behind it)
+			     · a hard drop shadow                (defines the panel against BRIGHT video)
+			     · a hairline top/left edge          (defines the panel against DARK video)
+			   Remove any one and the overlay disappears on some game. Keep all three.       */
+
+			:root {
+				--scale: 1;
+
+				--ink: #e9eef3;
+				--ink-dim: #8b98a9;
+				/* Not darker than this. Over BRIGHT game video the scrim lightens, and anything
+				   fainter loses the footer — which is the one line that must always be readable. */
+				--ink-faint: #6d7c8f;
+
+				--focus: #45d6a4; /* phosphor mint — the primary metric */
+				--flow: #f5b53f; /* heat — focus at or above baseline+ */
+				--calm: #62a0f5; /* cool blue — deliberately a different hue family */
+				--warn: #ff6b5e; /* a gate is shut */
+
+				/* 0.80, not 0.72: at 0.72 a white game frame washes the panel out and the footer
+				   drops below readable contrast. Verified against the white end of docs/01-live. */
+				--panel: rgba(11, 14, 18, 0.8);
+				--edge: rgba(255, 255, 255, 0.11);
+				--track: rgba(255, 255, 255, 0.07);
+
+				--mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'IBM Plex Mono', 'Cascadia Mono',
+					'Roboto Mono', Menlo, Consolas, monospace;
+			}
+
+			/* The streamer's own theme override, for light-UI games / light scenes. */
+			:root[data-theme='light'] {
+				--ink: #10151b;
+				--ink-dim: #5a6675;
+				--ink-faint: #97a2b0;
+				--panel: rgba(247, 249, 251, 0.8);
+				--edge: rgba(0, 0, 0, 0.1);
+				--track: rgba(0, 0, 0, 0.08);
+			}
+
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				/* OBS composites whatever is transparent here straight onto the scene. */
+				background: transparent;
+				overflow: hidden;
+			}
+
+			body {
+				font-family: var(--mono);
+				-webkit-font-smoothing: antialiased;
+			}
+
+			#panel {
+				width: calc(420px * var(--scale));
+				padding: calc(16px * var(--scale)) calc(18px * var(--scale)) calc(11px * var(--scale));
+				transform-origin: top left;
+
+				background: var(--panel);
+				backdrop-filter: blur(14px) saturate(125%);
+				-webkit-backdrop-filter: blur(14px) saturate(125%);
+
+				border-radius: 12px;
+				border-top: 1px solid var(--edge);
+				border-left: 1px solid var(--edge);
+				box-shadow:
+					0 1px 0 rgba(255, 255, 255, 0.04) inset,
+					0 10px 34px -8px rgba(0, 0, 0, 0.62),
+					0 2px 8px rgba(0, 0, 0, 0.35);
+
+				opacity: 0;
+				transform: translateY(-6px);
+				transition:
+					opacity 420ms ease,
+					transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+			}
+			/* Offline: the panel leaves. Better an empty corner than a number nobody is measuring. */
+			#panel.visible {
+				opacity: 1;
+				transform: none;
+			}
+
+			/* ── header ───────────────────────────────────────────────────────────────── */
+
+			header {
+				display: flex;
+				align-items: center;
+				gap: calc(7px * var(--scale));
+				margin-bottom: calc(13px * var(--scale));
+			}
+
+			#lamp {
+				width: calc(6px * var(--scale));
+				height: calc(6px * var(--scale));
+				border-radius: 50%;
+				background: var(--state, var(--ink-faint));
+				box-shadow: 0 0 calc(9px * var(--scale)) var(--state, transparent);
+				flex: none;
+			}
+			/* Only a live, earned reading breathes. Every other state holds perfectly still —
+			   stillness is the tell that nothing is being measured. */
+			#panel[data-state='live'] #lamp {
+				animation: pulse 2.4s ease-in-out infinite;
+			}
+			@keyframes pulse {
+				0%,
+				100% {
+					opacity: 1;
+				}
+				50% {
+					opacity: 0.42;
+				}
+			}
+
+			#title {
+				font-size: calc(9.5px * var(--scale));
+				letter-spacing: 0.19em;
+				text-transform: uppercase;
+				color: var(--ink-dim);
+				font-weight: 500;
+			}
+
+			#status {
+				margin-left: auto;
+				font-size: calc(9.5px * var(--scale));
+				letter-spacing: 0.11em;
+				text-transform: uppercase;
+				color: var(--state, var(--ink-faint));
+				font-variant-numeric: tabular-nums;
+			}
+
+			/* ── metric rows ──────────────────────────────────────────────────────────── */
+
+			.row {
+				display: grid;
+				grid-template-columns: calc(46px * var(--scale)) 1fr calc(46px * var(--scale));
+				align-items: center;
+				gap: calc(11px * var(--scale));
+				margin-bottom: calc(9px * var(--scale));
+			}
+
+			.label {
+				font-size: calc(9.5px * var(--scale));
+				letter-spacing: 0.15em;
+				text-transform: uppercase;
+				color: var(--ink-dim);
+			}
+
+			/* The instrument bar: a segmented track, so the eye reads a QUANTITY, not a smear. */
+			.track {
+				position: relative;
+				height: calc(9px * var(--scale));
+				border-radius: 2px;
+				background: var(--track);
+				overflow: hidden;
+			}
+
+			.fill {
+				position: absolute;
+				inset: 0 auto 0 0;
+				width: 0%;
+				background: var(--c);
+				border-radius: 2px;
+				transition: width 260ms cubic-bezier(0.33, 1, 0.68, 1);
+			}
+
+			/* Segment ticks are cut OUT of the bar, so they sit over fill and track alike. */
+			.track::after {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background: repeating-linear-gradient(
+					90deg,
+					transparent 0,
+					transparent calc(var(--seg) - 2px),
+					var(--panel) calc(var(--seg) - 2px),
+					var(--panel) var(--seg)
+				);
+				--seg: calc(100% / 24);
+				pointer-events: none;
+			}
+
+			.value {
+				font-size: calc(19px * var(--scale));
+				font-weight: 600;
+				text-align: right;
+				color: var(--c);
+				font-variant-numeric: tabular-nums;
+				letter-spacing: -0.02em;
+				line-height: 1;
+			}
+
+			#focus-row {
+				--c: var(--focus);
+			}
+			#calm-row {
+				--c: var(--calm);
+			}
+			/* Calm is the supporting reading — it must never out-shout focus, and it is NOT
+			   the inverse of focus. Different hue, smaller number, quieter weight. */
+			#calm-row .value {
+				font-size: calc(14px * var(--scale));
+				font-weight: 500;
+				opacity: 0.9;
+			}
+			#calm-row .track {
+				height: calc(6px * var(--scale));
+			}
+
+			/* Flow — focus at or above the flow threshold. The one moment of heat in the design. */
+			#panel.flow #focus-row {
+				--c: var(--flow);
+			}
+			#panel.flow #focus-row .fill {
+				box-shadow: 0 0 calc(13px * var(--scale)) var(--flow);
+			}
+			#panel.flow #focus-row .value {
+				text-shadow: 0 0 calc(15px * var(--scale)) rgba(245, 181, 63, 0.55);
+			}
+
+			/* ── the no-data state ────────────────────────────────────────────────────────
+			   A hatched track, never an empty one. An empty bar reads as "focus is zero",
+			   which is a claim; a hatched bar reads as "there is no reading", which is the
+			   truth. The number is replaced by an em-dash — there is no number to show.     */
+			#panel[data-nodata='1'] .fill {
+				width: 0% !important;
+			}
+			#panel[data-nodata='1'] .track {
+				background-image: repeating-linear-gradient(
+					-45deg,
+					transparent 0 3px,
+					rgba(255, 255, 255, 0.06) 3px 6px
+				);
+			}
+			#panel[data-nodata='1'] .value {
+				color: var(--ink-faint);
+			}
+			#panel[data-nodata='1'] .label {
+				color: var(--ink-faint);
+			}
+
+			/* ── the reason line, shown only when a gate is shut ──────────────────────── */
+
+			#reason {
+				display: none;
+				font-size: calc(9.5px * var(--scale));
+				line-height: 1.45;
+				color: var(--warn);
+				margin: calc(2px * var(--scale)) 0 calc(8px * var(--scale));
+				letter-spacing: 0.01em;
+			}
+			#panel[data-nodata='1'] #reason:not(:empty) {
+				display: block;
+			}
+
+			/* ── footer ───────────────────────────────────────────────────────────────────
+			   Non-negotiable. The score is relative to this wearer's own frozen baseline and
+			   is not comparable between people; the sensor is one around-ear dry channel.   */
+			footer {
+				border-top: 1px solid var(--edge);
+				padding-top: calc(8px * var(--scale));
+				font-size: calc(8.5px * var(--scale));
+				letter-spacing: 0.06em;
+				color: var(--ink-faint);
+				text-transform: lowercase;
+			}
+
+			/* `?bars=0` — numbers only, for a tighter corner. */
+			#panel.nobars .track {
+				display: none;
+			}
+			#panel.nobars .row {
+				grid-template-columns: calc(46px * var(--scale)) 1fr;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				* {
+					animation: none !important;
+					transition: none !important;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div id="panel" data-state="offline" data-nodata="1">
+			<header>
+				<span id="lamp"></span>
+				<span id="title">NeuroFocus</span>
+				<span id="status">offline</span>
+			</header>
+
+			<div class="row" id="focus-row">
+				<span class="label">Focus</span>
+				<div class="track"><div class="fill"></div></div>
+				<span class="value">—</span>
+			</div>
+
+			<div class="row" id="calm-row">
+				<span class="label">Calm</span>
+				<div class="track"><div class="fill"></div></div>
+				<span class="value">—</span>
+			</div>
+
+			<p id="reason"></p>
+
+			<footer id="footer"></footer>
+		</div>
+
+		<script type="module" src="./overlay.ts"></script>
+	</body>
+</html>

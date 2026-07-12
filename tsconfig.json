@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"target": "ESNext",
+		"module": "Preserve",
+		"moduleResolution": "bundler",
+		"types": ["bun"],
+
+		"strict": true,
+		"noUncheckedIndexedAccess": false,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"verbatimModuleSyntax": true,
+
+		"allowJs": false,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"allowImportingTsExtensions": true
+	},
+	"include": ["server.ts", "playwright.config.ts", "vitest.config.ts", "src/**/*.ts", "src/**/*.d.ts", "scripts/**/*.ts", "tests/**/*.ts"],
+	"exclude": ["node_modules", "state"]
+}

@@ -1,0 +1,40 @@
+# ── secrets & runtime state ───────────────────────────────────────────────────
+# state/token is a generated 256-bit bearer token that authorises the OBS overlay
+# and every read of the live biometric feed. It must never be committed.
+state/
+*.token
+.env
+.env.*
+!.env.example
+
+# ── dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── build output ──────────────────────────────────────────────────────────────
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# ── test artifacts ────────────────────────────────────────────────────────────
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# ── editors & OS ──────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ── logs ──────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+bun-debug.log*
