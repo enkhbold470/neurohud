@@ -8,9 +8,12 @@ no-op when that isn't there.
 
 ```bash
 bun install && bun start     # relay + link page + overlay
-bun test                     # drift check → unit → types → browser
+bun run test                 # drift check → unit → types → browser
 bun run shoot                # regenerate docs/*.png and docs/overlay.gif
 ```
+
+`bun run test`, never `bun test` — the latter is Bun's own runner and it collects the Playwright
+specs in `tests/`, which it cannot run.
 
 ## The one rule
 

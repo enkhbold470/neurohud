@@ -165,8 +165,11 @@ they drift; their own test suites come along to prove they didn't.
 ## Tests
 
 ```bash
-bun test          # everything: drift, units, types, browser
+bun run test      # everything: drift → units → types → browser
 ```
+
+> Use `bun run test`, not `bun test` — the latter is Bun's own runner, which would try to collect
+> the Playwright specs and fall over.
 
 116 tests, no hardware required. They pin the things that would put a false number in front of an
 audience:
