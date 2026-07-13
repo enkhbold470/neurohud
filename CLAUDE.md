@@ -72,10 +72,16 @@ CORS preflight**.
 
 - **`import.meta.url` is not a real path inside a compiled binary.** `bun build --compile` puts
   modules in a virtual filesystem (`/$bunfs/root`, or `B:\~BUN\root` on Windows), so walking `..`
-  from it used to resolve to `/` — and the server died on boot with `EROFS: mkdir '/state'`. A
-  streamer double-clicking the binary saw it crash instantly, while `bun start` from source worked
-  perfectly. `config.ts` detects this and uses the OS user-data directory. **Always test the
-  binary, not just `bun start`** — they resolve paths differently.
+  from it resolves to a filesystem root — and the server died on boot with `EROFS: mkdir '/state'`
+  on unix, `EPERM: mkdir '\'` on Windows. A streamer double-clicking the binary saw it crash
+  instantly, while `bun start` from source worked perfectly. `config.ts` detects this
+  (`isCompiledModule`) and uses the OS user-data directory. **Always test the binary, not just
+  `bun start`** — they resolve paths differently.
+    - **The Windows tilde is percent-encoded.** `import.meta.url` is a *URL*, so Bun hands the
+      Windows root back as `B:/%7EBUN/root`, not `~BUN` — a literal `~BUN` match misses it, the
+      binary is taken for a source checkout, and it crashes. The check `decodeURIComponent`s first.
+      `config.test.ts` pins the `%7E` form; and `stateDir` refuses to `mkdir` a filesystem root even
+      if detection ever misses a new spelling.
 
 - **`src/lib/{ble,dsp,focus,adc}.ts` are VENDORED** from `web-ble-monitor`, byte-identical, with a
   banner saying so. Edit them upstream and re-run `bun run sync:lib`. `bun run check:lib` fails

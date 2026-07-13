@@ -9,14 +9,36 @@ import { fileURLToPath } from 'node:url';
 import { generateToken } from './security';
 
 /**
- * True when running from a `bun build --compile` binary rather than from source.
+ * True when `moduleUrl` names a module inside a `bun build --compile` standalone binary rather
+ * than a real file on disk.
  *
- * Inside a standalone binary the module lives in Bun's virtual filesystem (`/$bunfs/root` on
- * unix, `B:\~BUN\root` on Windows), so `import.meta.url` does NOT point at anywhere real. Walking
- * `..` from there used to resolve to `/`, and the server died on boot trying to `mkdir /state`
- * — EROFS. A streamer double-clicking the binary would have seen it crash instantly.
+ * A compiled binary runs its modules from Bun's virtual filesystem — `/$bunfs/root` on unix,
+ * `B:\~BUN\root` on Windows — so `import.meta.url` points at nowhere real. Walking `..` from there
+ * lands on a filesystem root, and the server dies on boot trying to `mkdir` it: `EROFS: mkdir
+ * '/state'` on unix, `EPERM: mkdir '\'` on Windows. A streamer double-clicking the binary sees it
+ * crash instantly, while `bun start` from source works perfectly.
+ *
+ * The tilde is the trap that shipped. Bun spells the Windows root `~BUN`, but `import.meta.url` is
+ * a URL and hands the tilde back percent-encoded — `%7EBUN` — so a literal `~BUN` match misses it,
+ * the binary is taken for a source checkout, and it crashes. Decode first, then match. Exported so
+ * a test can pin exactly the forms Bun emits.
  */
-const COMPILED = /[\\/]\$bunfs[\\/]|~BUN/.test(import.meta.url);
+export function isCompiledModule(moduleUrl: string): boolean {
+	let path = moduleUrl;
+	try {
+		path = decodeURIComponent(moduleUrl);
+	} catch {
+		/* malformed %-escapes — fall back to the raw URL, which still catches the un-encoded roots */
+	}
+	return /[\\/]\$bunfs[\\/]|[\\/]~BUN[\\/]/.test(path);
+}
+
+const COMPILED = isCompiledModule(import.meta.url);
+
+/** A filesystem root (`/`, `C:\`, `B:\`) is its own parent. Never `mkdir` one. */
+function isFilesystemRoot(p: string): boolean {
+	return resolve(p) === resolve(p, '..');
+}
 
 /**
  * Where the generated token and the OBS text mirror live.
@@ -30,7 +52,11 @@ function stateDir(): string {
 	if (override) return override;
 
 	if (!COMPILED) {
-		return join(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'), 'state');
+		const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+		// Belt and suspenders for the boot crash above: if `COMPILED` ever misses a new virtual-FS
+		// spelling, `repoRoot` is a filesystem root, not a checkout. Fall through to the OS data
+		// dir rather than `mkdir` the root.
+		if (!isFilesystemRoot(repoRoot)) return join(repoRoot, 'state');
 	}
 
 	const home = homedir();
@@ -38,9 +64,11 @@ function stateDir(): string {
 		case 'darwin':
 			return join(home, 'Library', 'Application Support', 'NeuroHUD');
 		case 'win32':
-			return join(process.env.APPDATA ?? join(home, 'AppData', 'Roaming'), 'NeuroHUD');
+			// `env()` (not `??`) so an empty `APPDATA` falls back too — otherwise the state dir is
+			// relative, and a double-clicked binary's cwd is anyone's guess.
+			return join(env('APPDATA') ?? join(home, 'AppData', 'Roaming'), 'NeuroHUD');
 		default:
-			return join(process.env.XDG_DATA_HOME ?? join(home, '.local', 'share'), 'neurohud');
+			return join(env('XDG_DATA_HOME') ?? join(home, '.local', 'share'), 'neurohud');
 	}
 }
 
